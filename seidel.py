@@ -1,52 +1,54 @@
-# coding=utf-8
-from numpy import *
-from numpy.linalg import *
+from numpy import dot, zeros_like, allclose, array, shape
+import time
 
-inp = open('input.txt', 'r')
-out = open('output.txt', 'w')
+def third_norm(A):
+    sum = 0
+    for i in range(shape(A)[0]):
+        for j in range(shape(A)[1]):
+            sum += (A[i][j] * A[i][j])
+    sum = sum ** (1/2)
+    return sum
 
-n, m = 5, 5
-A, f, E = [], [], identity(n)
-eps = 10 ** (-5)
 
-for line in inp:  # читаем А и b
-    temp = [float(x) for x in line.split()]
-    f.append(temp.pop())
-    A.append(temp)
+def seidel(A, b, it_limit):
+    if third_norm(A) >= 1:
+        raise Exception("Method diverges")
+    x = zeros_like(b)
+    it = 0
+    for it_count in range(1, it_limit):
+        x_new = zeros_like(x)
+        for i in range(A.shape[0]):
+            s1 = dot(A[i, :i], x_new[:i])
+            s2 = dot(A[i, i + 1:], x[i + 1:])
+            x_new[i] = (b[i] - s1 - s2) / A[i, i]
+            it = it_count
+        if allclose(x, x_new, rtol=1e-3):
+            it = it_count
+            break
+        x = x_new
+    return x, it
 
-a, b = array(A), array(f).transpose()
 
-out.write('A:\n {}\n'.format(a))
-out.write('b:\n {}\n'.format(b))
+if __name__ == '__main__':
 
-D = diag(a)  # диагональные ел-ты A
-# LD = inv(tril(a))  # получаем обратную нижнего треугольника с диагональю
-# U = triu(a) - E * D  # нижний треугольник
-xk, x = array(b / D), zeros(n)  # начальное приближение
-k = 0
+    start_time = time.time()
+    A = array([[ 2., -3.,  0.,  0.],
+       [ 1.,  2., -3.,  0.],
+       [ 0.,  1.,  2., -3.],
+       [ 0.,  0.,  1.,  2.]])
+    # initialize the RHS vector
+    b = array([-1.,  0.,  0.,  3.])
 
-out.write('x0:\n {}\n'.format(xk))
-out.write('D:\n {}\n'.format(D))
-# out.write('(L+D)^(-1):\n {}\n'.format(LD))
-# out.write('U:\n {}\n'.format(U))
-
-while True:  # итерационный процесс
-    # x = -dot(dot(LD, U), xk) + dot(LD, b)
-    for i in range(n):
-        x[i] = b[i] / a[i][i] - sum([x[j] * a[i][j] / a[i][i] for j in range(i)]) - sum(
-            [xk[j] * a[i][j] / a[i][i] for j in range(i + 1, n)])
-
-    if abs(norm(xk, 1) - norm(x, 1)) < eps:
-        break
-    xk = array(x)
-    k += 1
-
-out.write('x:\n {}\n'.format(x))
-out.write('k:\n {}\n'.format(k))
-
-r = dot(A, x) - f  # находим вектор невязки
-
-out.write('r:\n {}\n'.format(r))
-out.write('||r||:\n {}\n'.format(norm(r, 1)))
-# out.write('|| (L+D)^(-1)*U ||:\n {}\n'.format(norm(dot(LD, U), inf)))
-out.write('eps:\n {}\n'.format(eps))
+    #print("System of equations:")
+    #for i in range(A.shape[0]):
+    #     row = ["{0:3g}*x{1}".format(A[i, j], j + 1) for j in range(A.shape[1])]
+    #     print("[{0}] = [{1:3g}]".format(" + ".join(row), b[i]))
+    try:
+        x, iterations = seidel(A, b, 1000)
+        print("Solution: {0}".format(x))
+        error = dot(A, x) - b
+        print("Error: {0}".format(error))
+        print ("Iterations number is {}".format(iterations))
+        print("--- {} seconds ---".format(time.time() - start_time))
+    except Exception as e:
+        print("Error:", e)
